@@ -143,19 +143,6 @@ const Header = () => {
             {/* Menus for LOGGED IN users */}
             {!loading && isLoggedIn && (
               <>
-                {/* Tombol Notifikasi di sini, di paling kiri dari menu Scan */}
-                {!pushLoading && (
-                  <li className="nav__item nav__item--notification"> {/* Tambah class baru untuk styling list item */}
-                    <button
-                      className="button nav__button-notification"
-                      onClick={handlePushToggle}
-                      disabled={pushLoading}
-                      aria-label={isPushEnabled ? 'Nonaktifkan Notifikasi' : 'Aktifkan Notifikasi'}
-                    >
-                      <i className={`bx ${isPushEnabled ? 'bxs-bell' : 'bx-bell'}`}></i>
-                    </button>
-                  </li>
-                )}
 
                 <li className="nav__item nav__dropdown">
                   <span className={
