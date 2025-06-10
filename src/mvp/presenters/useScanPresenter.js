@@ -27,10 +27,10 @@ export default function useScanPresenter() {
 
   const [lifestyleRecommendations, setLifestyleRecommendations] = useState(null);
 
-  const STATIC_APP_URL = 'https://jerahwat.vercel.app/scan';
+  const STATIC_APP_URL = 'https://jerawhat-capstone.vercel.app/';
 
   useEffect(() => {
-    import("../../data/lifestyleRecomendation.json") // Periksa kembali jalur ini jika ada masalah
+    import("../../data/lifestyleRecomendation.json")
       .then((data) => {
         console.log("Loaded recommendations:", data.default);
         setLifestyleRecommendations(data.default);
@@ -105,7 +105,6 @@ export default function useScanPresenter() {
     fetchCameras();
   }, []);
 
-  // Pastikan `stopCamera` didefinisikan sebagai useCallback untuk stabilitas.
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -117,23 +116,20 @@ export default function useScanPresenter() {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
-    // Tambahkan baris ini untuk mereset srcObject video saat kamera berhenti
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  }, []); // Dependensi kosong karena fungsi ini hanya bergantung pada refs
+  }, []);
 
   useEffect(() => {
-    // Cleanup kamera saat komponen di-unmount
     return () => {
       stopCamera();
     };
-  }, [stopCamera]); // Tambahkan stopCamera sebagai dependensi
+  }, [stopCamera]);
 
   useEffect(() => {
     if (isCameraActive && streamRef.current && videoRef.current) {
       videoRef.current.srcObject = streamRef.current;
-      // Periksa videoRef.current sebelum mengakses properti onloadedmetadata dan play()
       const videoElement = videoRef.current;
       if (videoElement) {
         videoElement.onloadedmetadata = () => {
@@ -143,7 +139,7 @@ export default function useScanPresenter() {
     } else if (!isCameraActive && videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  }, [isCameraActive, streamRef.current]); // videoRef.current dihapus dari dependencies karena sudah useRef
+  }, [isCameraActive, streamRef.current]);
 
   const onCameraChange = (deviceId) => {
     setSelectedCameraId(deviceId);
@@ -153,10 +149,11 @@ export default function useScanPresenter() {
   const onTakeSnapshot = async () => {
     if (!videoRef.current || loading || modelLoadStatus !== "ready" || faceDetectionStatus.status !== "idle") return;
     setIsCapturing(true);
+    // Atur loading dan statusMsg awal di sini, sisanya ditangani oleh processImageForPrediction
     setLoading(true);
-    setStatusMsg("");
+    setStatusMsg("Menganalisis gambar...");
     setPredictionResult(null);
-    setFaceDetectionStatus({ status: "idle", error: null });
+    setFaceDetectionStatus({ status: "detecting", error: null });
 
     try {
       const video = videoRef.current;
@@ -172,13 +169,17 @@ export default function useScanPresenter() {
       const file = new File([blob], "camera-snapshot.jpg", { type: "image/jpeg" });
       setSelectedImage(file);
 
-      stopCamera();
+      stopCamera(); // Hentikan kamera setelah snapshot diambil
+
+      // Panggil fungsi pembantu untuk melanjutkan proses prediksi
+      await processImageForPrediction(file);
     } catch (error) {
       console.error("Error taking snapshot:", error);
       setStatusMsg("Gagal mengambil gambar: " + error.message);
+      setLoading(false); // Pastikan loading direset jika ada error awal
     } finally {
-      setLoading(false);
       setIsCapturing(false);
+      // setLoading(false) dihilangkan di sini, akan diatur oleh processImageForPrediction
     }
   };
 
@@ -188,7 +189,7 @@ export default function useScanPresenter() {
       return;
     }
 
-    stopCamera(); // Hentikan kamera yang aktif sebelumnya
+    stopCamera();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -246,9 +247,8 @@ export default function useScanPresenter() {
         throw new Error("Token autentikasi tidak ditemukan dalam data user. Anda harus login.");
       }
 
-      // ⚠️ PERBAIKAN: Definisikan formData di sini
       const formData = new FormData();
-      formData.append('photo', dataToSave.photo); // Tambahkan file gambar
+      formData.append('photo', dataToSave.photo);
       formData.append('kondisi_jerawat', dataToSave.kondisi_jerawat);
       formData.append('keyakinan_model', dataToSave.keyakinan_model);
       formData.append('rekomendasi_makanan', dataToSave.rekomendasi_makanan);
@@ -256,16 +256,12 @@ export default function useScanPresenter() {
       formData.append('rekomendasi_aktivitas_fisik', dataToSave.rekomendasi_aktivitas_fisik);
       formData.append('rekomendasi_manajemen_stress', dataToSave.rekomendasi_manajemen_stress);
 
-
       const response = await fetch("https://api.afridika.my.id/history", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          // Penting: Jangan set 'Content-Type': 'application/json' jika menggunakan FormData
-          // Browser akan otomatis mengaturnya sebagai 'multipart/form-data' dengan boundary yang benar
-          // saat Anda mengirim objek FormData
         },
-        body: formData, // Gunakan formData yang sudah didefinisikan
+        body: formData,
       });
       const result = await response.json();
 
@@ -281,36 +277,42 @@ export default function useScanPresenter() {
       console.log("Riwayat berhasil disimpan:", result);
     } catch (error) {
       console.error("Error saving history to backend:", error);
-      setStatusMsg("Gagal menyimpan riwayat: " + error.message);
+      // StatusMsg akan diatur oleh processImageForPrediction atau SweetAlert sebelumnya
+      // setStatusMsg("Gagal menyimpan riwayat: " + error.message);
     }
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedImage || loading || modelLoadStatus !== "ready" || faceDetectionStatus.status === "detecting") return;
-
-    setLoading(true);
-    setStatusMsg("Menganalisis gambar...");
-    setPredictionResult(null);
-    setFaceDetectionStatus({ status: "detecting", error: null });
+  // Fungsi pembantu untuk memproses gambar, sekarang lebih mandiri dalam mengatur loading/statusMsg final
+  const processImageForPrediction = async (imageFileToProcess) => {
+    // Pastikan SweetAlert loading sudah tampil di ScanView sebelum proses ini
+    // setLoading(true); // Sudah diatur di onSubmit/onTakeSnapshot
+    // setStatusMsg("Menganalisis gambar..."); // Sudah diatur di onSubmit/onTakeSnapshot
+    // setPredictionResult(null); // Sudah diatur di onSubmit/onTakeSnapshot
+    // setFaceDetectionStatus({ status: "detecting", error: null }); // Sudah diatur di onSubmit/onTakeSnapshot
 
     try {
-      const faceDetectionRes = await model.detectFace(selectedImage);
+      const faceDetectionRes = await model.detectFace(imageFileToProcess);
       if (!faceDetectionRes.success) {
         setFaceDetectionStatus({ status: "error", error: faceDetectionRes.message });
-        setStatusMsg(faceDetectionRes.message);
-        setLoading(false);
-        return;
+        setStatusMsg(faceDetectionRes.message); // Set pesan error deteksi wajah (akan diproses SweetAlert di ScanView)
+        // Kuncinya: setLoading(false) dipanggil setelah statusMsg diatur.
+        // Berikan sedikit waktu agar SweetAlert 'Tidak ada wajah terdeteksi' bisa muncul
+        await new Promise(resolve => setTimeout(resolve, 50)); // Penundaan singkat
+        setLoading(false); // Penting: Ini menutup SweetAlert 'Menganalisis...'
+        return; // Hentikan alur jika deteksi wajah gagal
       }
       if (faceDetectionRes.data.predictedClass === "non wajah") {
         setFaceDetectionStatus({ status: "no_face", error: null });
-        setStatusMsg("Tidak ada wajah yang terdeteksi dalam gambar.");
-        setLoading(false);
-        return;
+        setStatusMsg("Tidak ada wajah terdeteksi dalam gambar."); // Set pesan tidak ada wajah
+        // Kuncinya: setLoading(false) dipanggil setelah statusMsg diatur.
+        // Berikan sedikit waktu agar SweetAlert 'Tidak ada wajah terdeteksi' bisa muncul
+        await new Promise(resolve => setTimeout(resolve, 50)); // Penundaan singkat
+        setLoading(false); // Penting: Ini menutup SweetAlert 'Menganalisis...'
+        return; // Hentikan alur jika tidak ada wajah
       }
       setFaceDetectionStatus({ status: "detected", error: null });
 
-      const result = await model.predictAcne(selectedImage);
+      const result = await model.predictAcne(imageFileToProcess);
       if (result.success) {
         setPredictionResult(result.data);
         setStatusMsg("Prediksi jerawat berhasil!");
@@ -328,7 +330,7 @@ export default function useScanPresenter() {
           if (recommendationKey && lifestyleRecommendations[recommendationKey]) {
             const recommendations = lifestyleRecommendations[recommendationKey];
             const dataToSave = {
-              photo: selectedImage, // File gambar yang akan diupload
+              photo: imageFileToProcess,
               kondisi_jerawat: result.data.predictedClass,
               keyakinan_model: result.data.confidence,
               rekomendasi_makanan: recommendations.makanan_dianjurkan.join("; "),
@@ -340,6 +342,7 @@ export default function useScanPresenter() {
               await saveHistoryToBackend(dataToSave);
             } catch (historyError) {
               console.error("Error saving history after prediction:", historyError);
+              // setStatusMsg("Gagal menyimpan riwayat: " + historyError.message); // Biarkan SweetAlert hasil yang tampil
             }
           } else {
             console.warn("Tidak ada rekomendasi yang cocok untuk kelas prediksi:", result.data.predictedClass);
@@ -352,15 +355,31 @@ export default function useScanPresenter() {
       console.error("Error during full prediction process:", error);
       setStatusMsg("Gagal melakukan analisis: " + error.message);
     } finally {
+      // Pastikan loading direset setelah semua proses selesai dan statusMsg terakhir diatur.
+      // Ini penting agar SweetAlert loading tertutup dan SweetAlert hasil/error bisa tampil.
       setLoading(false);
     }
+  };
+
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedImage || loading || modelLoadStatus !== "ready" || faceDetectionStatus.status === "detecting") return;
+
+    // Inisialisasi status di awal
+    setLoading(true);
+    setStatusMsg("Menganalisis gambar...");
+    setPredictionResult(null);
+    setFaceDetectionStatus({ status: "detecting", error: null });
+
+    await processImageForPrediction(selectedImage);
   };
 
   const onFileChange = (e) => {
     stopCamera();
     setSelectedImage(e.target.files[0] || null);
     setPredictionResult(null);
-    setStatusMsg("");
+    setStatusMsg(""); // Reset statusMsg agar SweetAlert tidak muncul saat ganti file
     setFaceDetectionStatus({ status: "idle", error: null });
   };
 
