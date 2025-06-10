@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import Swal from 'sweetalert2'; // Import SweetAlert
-import 'sweetalert2/dist/sweetalert2.min.css'; // Import CSS SweetAlert
+import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 
 // Contoh placeholder Modal (tetap sama)
 const SimpleModal = ({ isOpen, onClose, children }) => {
@@ -48,14 +48,13 @@ const SimpleModal = ({ isOpen, onClose, children }) => {
   );
 };
 
-
 export default function ScanView({
   selectedImage,
   imagePreview,
   predictionResult,
   loading,
   statusMsg,
-  modelLoadStatus, // Gunakan state baru ini
+  modelLoadStatus,
   onFileChange,
   onSubmit,
   onReset,
@@ -76,62 +75,68 @@ export default function ScanView({
 }) {
   const [sharableImageUrl, setSharableImageUrl] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Ref untuk melacak apakah SweetAlert loading sedang aktif
   const loadingSwalActive = useRef(false);
 
-  // Effect untuk menampilkan SweetAlert berdasarkan status umum (bukan loading model)
   useEffect(() => {
-    // Tutup SweetAlert loading jika tidak ada loading atau statusMsg kosong
     if (!loading && !statusMsg && loadingSwalActive.current) {
         Swal.close();
         loadingSwalActive.current = false;
     }
 
     if (statusMsg) {
-      if (statusMsg.includes("Prediksi jerawat berhasil!")) {
-        // Pastikan loading Swal ditutup sebelum menampilkan sukses
-        if (loadingSwalActive.current) {
-            Swal.close();
-            loadingSwalActive.current = false;
+        if (statusMsg.includes("Prediksi jerawat berhasil!")) {
+            if (loadingSwalActive.current) {
+                Swal.close();
+                loadingSwalActive.current = false;
+            }
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: statusMsg,
+                timer: 2000,
+                showConfirmButton: false,
+            }).then(() => {
+                setStatusMsg("");
+            });
+        } else if (statusMsg.includes("Gagal") || statusMsg.includes("Terjadi kesalahan")) {
+            if (loadingSwalActive.current) {
+                Swal.close();
+                loadingSwalActive.current = false;
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: statusMsg,
+            }).then(() => {
+                setStatusMsg("");
+            });
+        } else if (statusMsg.includes("Tidak ada wajah terdeteksi")) {
+            if (loadingSwalActive.current) {
+                Swal.close();
+                loadingSwalActive.current = false;
+            }
+            Swal.fire({
+                icon: 'warning',
+                title: 'Wajah Tidak Terdeteksi',
+                text: statusMsg,
+            }).then(() => {
+                setStatusMsg("");
+            });
         }
-        Swal.fire({
-          icon: 'success',
-          title: 'Berhasil!',
-          text: statusMsg,
-          timer: 2000,
-          showConfirmButton: false,
-        }).then(() => {
-          setStatusMsg(""); // Bersihkan status setelah ditampilkan
-        });
-      } else if (statusMsg.includes("Gagal") || statusMsg.includes("Tidak ada wajah terdeteksi")) {
-        // Pastikan loading Swal ditutup sebelum menampilkan error
-        if (loadingSwalActive.current) {
-            Swal.close();
-            loadingSwalActive.current = false;
+         else if (statusMsg.includes("Menganalisis gambar...")) {
+            Swal.fire({
+                title: 'Menganalisis...',
+                html: 'Mohon tunggu, kami sedang memproses gambar Anda.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                    loadingSwalActive.current = true;
+                },
+            });
         }
-        Swal.fire({
-          icon: 'error',
-          title: 'Oops...',
-          text: statusMsg,
-        }).then(() => {
-          setStatusMsg(""); // Bersihkan status setelah ditampilkan
-        });
-      } else if (statusMsg.includes("Menganalisis gambar...")) { // Hanya untuk pesan analisis
-        Swal.fire({
-          title: 'Menganalisis...',
-          html: 'Mohon tunggu, kami sedang memproses gambar Anda.',
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-            loadingSwalActive.current = true; // Set flag
-          },
-        });
-      }
     }
-  }, [statusMsg, loading, setStatusMsg]); // statusMsg, loading, dan setStatusMsg sebagai dependencies
+}, [statusMsg, loading, setStatusMsg]);
 
-  // Effect untuk menampilkan SweetAlert khusus status loading model
   useEffect(() => {
     if (modelLoadStatus === "loading") {
       Swal.fire({
@@ -140,11 +145,11 @@ export default function ScanView({
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
-          loadingSwalActive.current = true; // Set flag
+          loadingSwalActive.current = true;
         },
       });
     } else if (modelLoadStatus === "ready") {
-      if (loadingSwalActive.current) { // Hanya tutup jika SweetAlert loading model sedang aktif
+      if (loadingSwalActive.current) {
         Swal.close();
         loadingSwalActive.current = false;
       }
@@ -154,8 +159,8 @@ export default function ScanView({
         text: 'Model AI deteksi wajah dan jerawat berhasil dimuat.',
         timer: 1500,
         showConfirmButton: false,
-        toast: true, // Tampilkan sebagai toast
-        position: 'top-end', // Posisikan di pojok kanan atas
+        toast: true,
+        position: 'top-end',
       });
     } else if (modelLoadStatus === "error") {
       if (loadingSwalActive.current) {
@@ -168,17 +173,14 @@ export default function ScanView({
         text: 'Terjadi kesalahan saat memuat model AI. Silakan coba refresh halaman.',
       });
     } else if (modelLoadStatus === "idle") {
-        // Jika model idle, pastikan SweetAlert loading model ditutup
         if (loadingSwalActive.current) {
             Swal.close();
             loadingSwalActive.current = false;
         }
     }
-  }, [modelLoadStatus]); // modelLoadStatus sebagai dependency
+  }, [modelLoadStatus]);
 
-  // Hapus `renderModelStatus` dan `renderFaceDetectionStatus` jika hanya ingin pakai SweetAlert
   const renderModelStatus = () => {
-    // Teks ini hanya akan muncul sebagai fallback atau jika Anda masih ingin tampilan teks selain SweetAlert
     switch (modelLoadStatus) {
       case "loading":
         return <p style={{ color: "orange" }}>⏳ Model sedang dimuat...</p>;
@@ -203,111 +205,111 @@ export default function ScanView({
     return null;
   };
 
+    const handleShareResultClick = async () => {
+        if (!predictionResult) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Info',
+                text: 'Silakan lakukan scan terlebih dahulu untuk mendapatkan hasil.',
+            });
+            return;
+        }
+        if (!navigator.share) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Fitur Tidak Tersedia',
+                text: 'Browser Anda tidak mendukung fitur berbagi langsung. Silakan unduh gambar dan bagikan secara manual.',
+            });
+            return;
+        }
 
-  const handleShareResultClick = async () => {
-    if (!predictionResult) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Info',
-        text: 'Silakan lakukan scan terlebih dahulu untuk mendapatkan hasil.',
-      });
-      return;
-    }
-    if (!navigator.share) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Fitur Tidak Tersedia',
-        text: 'Browser Anda tidak mendukung fitur berbagi langsung. Silakan unduh gambar dan bagikan secara manual.',
-      });
-      return;
-    }
+        const imageUrl = await createSharableImage();
+        if (imageUrl) {
+            setSharableImageUrl(imageUrl);
+            setIsModalOpen(true);
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Membuat Gambar',
+                text: 'Gagal membuat gambar untuk dibagikan. Silakan coba lagi.',
+            });
+        }
+    };
 
-    const imageUrl = await createSharableImage();
-    if (imageUrl) {
-      setSharableImageUrl(imageUrl);
-      setIsModalOpen(true);
-    } else {
-      Swal.fire({
-        icon: 'error',
-        title: 'Gagal Membuat Gambar',
-        text: 'Gagal membuat gambar untuk dibagikan. Silakan coba lagi.',
-      });
-    }
-  };
+    const handleShareFromModal = async () => {
+        if (!sharableImageUrl || !predictionResult) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Info',
+                text: 'Tidak ada gambar atau hasil prediksi untuk dibagikan.',
+            });
+            return;
+        }
 
-  const handleShareFromModal = async () => {
-    if (!sharableImageUrl || !predictionResult) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Info',
-        text: 'Tidak ada gambar atau hasil prediksi untuk dibagikan.',
-      });
-      return;
-    }
+        try {
+            const response = await fetch(sharableImageUrl);
+            const blob = await response.blob();
+            const file = new File([blob], `hasil_scan_jerawat_${new Date().getTime()}.png`, { type: blob.type });
 
-    try {
-      const response = await fetch(sharableImageUrl);
-      const blob = await response.blob();
-      const file = new File([blob], `hasil_scan_jerawat_${new Date().getTime()}.png`, { type: blob.type });
+            const shareText = `Saya baru saja melakukan scan jerawat dan hasilnya: ${predictionResult.predictedClass}! Dapatkan analisis kulitmu di ${window.location.origin}/scan`;
+            const shareTitle = 'Hasil Scan Jerawatku!';
 
-      const shareText = `Saya baru saja melakukan scan jerawat dan hasilnya: ${predictionResult.predictedClass}! Dapatkan analisis kulitmu di ${window.location.origin}/scan`;
-      const shareTitle = 'Hasil Scan Jerawatku!';
+            await navigator.share({
+                title: shareTitle,
+                text: shareText,
+                files: [file],
+            });
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Berhasil dibagikan!',
+                timer: 1500,
+                showConfirmButton: false,
+            });
+        } catch (error) {
+            console.error('Error sharing:', error);
+            if (error.name === 'AbortError') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Dibatalkan',
+                    text: 'Berbagi dibatalkan oleh pengguna.',
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Berbagi',
+                    text: 'Gagal berbagi: ' + error.message,
+                });
+            }
+        } finally {
+            setIsModalOpen(false);
+        }
+    };
 
-      await navigator.share({
-        title: shareTitle,
-        text: shareText,
-        files: [file],
-      });
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil!',
-        text: 'Berhasil dibagikan!',
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-      if (error.name === 'AbortError') {
-        Swal.fire({
-          icon: 'info',
-          title: 'Dibatalkan',
-          text: 'Berbagi dibatalkan oleh pengguna.',
-        });
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Gagal Berbagi',
-          text: 'Gagal berbagi: ' + error.message,
-        });
-      }
-    } finally {
-      setIsModalOpen(false);
-    }
-  };
+    const handleDownloadImage = () => {
+        if (sharableImageUrl) {
+            const link = document.createElement('a');
+            link.href = sharableImageUrl;
+            link.download = `hasil_scan_jerawat_${new Date().getTime()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Gambar hasil scan berhasil diunduh!',
+                timer: 1500,
+                showConfirmButton: false,
+            });
+        } else {
+            Swal.fire({
+                icon: 'info',
+                title: 'Info',
+                text: 'Tidak ada gambar untuk diunduh. Buat gambar terlebih dahulu.',
+            });
+        }
+    };
 
-  const handleDownloadImage = () => {
-    if (sharableImageUrl) {
-      const link = document.createElement('a');
-      link.href = sharableImageUrl;
-      link.download = `hasil_scan_jerawat_${new Date().getTime()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil!',
-        text: 'Gambar hasil scan berhasil diunduh!',
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } else {
-      Swal.fire({
-        icon: 'info',
-        title: 'Info',
-        text: 'Tidak ada gambar untuk diunduh. Buat gambar terlebih dahulu.',
-      });
-    }
-  };
 
   return (
     <>
@@ -324,7 +326,6 @@ export default function ScanView({
             boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
             marginBottom: "2rem"
           }}>
-            {/* Tampilan status model bisa dihapus jika hanya ingin mengandalkan SweetAlert */}
             {/* <div className="model__status reveal-from-bottom" style={{ marginBottom: "1.5rem" }}>
               {renderModelStatus()}
             </div> */}
@@ -546,7 +547,6 @@ export default function ScanView({
                     }}>
                       <strong>Keyakinan Model:</strong> {(predictionResult.confidence * 100).toFixed(2)}%
                     </p>
-                    {/* Lifestyle Recommendations */}
                     {predictionResult.predictedClass !== "Tidak Ada Jerawat" && lifestyleRecommendations && (
                       <div style={{
                         background: "white",
@@ -639,22 +639,21 @@ export default function ScanView({
                   </p>
                 )}
 
-                {/* Tombol tunggal untuk memicu modal hasil scan */}
                 <div style={{ textAlign: "center", marginTop: "2rem" }}>
-                  <button
-                    type="button"
-                    className="button"
-                    onClick={handleShareResultClick}
-                    disabled={loading || !predictionResult || !navigator.share}
-                    style={{
-                      padding: "0.75rem 2rem",
-                      fontSize: "1.1rem",
-                      backgroundColor: 'var(--first-color)',
-                      color: 'var(--title-color)'
-                    }}
-                  >
-                    Bagikan Hasil Scan
-                  </button>
+                    <button
+                        type="button"
+                        className="button"
+                        onClick={handleShareResultClick}
+                        disabled={loading || !predictionResult || !navigator.share}
+                        style={{
+                            padding: "0.75rem 2rem",
+                            fontSize: "1.1rem",
+                            backgroundColor: 'var(--first-color)',
+                            color: 'var(--title-color)'
+                        }}
+                    >
+                        Bagikan Hasil Scan
+                    </button>
                 </div>
               </div>
             )}
@@ -665,69 +664,68 @@ export default function ScanView({
         <i className="bx bx-up-arrow-alt scrollup__icon"></i>
       </a>
 
-      {/* Modal untuk menampilkan hasil scan dan tombol berbagi */}
-      <SimpleModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <h3 style={{ fontSize: "1.5rem", marginBottom: "1.5rem", textAlign: "center", color: "#333" }}>
-          Hasil Analisis Wajah
-        </h3>
-        {sharableImageUrl && (
-          <div style={{ marginBottom: "1rem" }}>
-            <img
-              src={sharableImageUrl}
-              alt="Hasil Scan"
-              style={{
-                maxWidth: "100%",
-                maxHeight: "300px",
-                borderRadius: "12px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                display: "block",
-                margin: "0 auto",
-                backgroundColor: "white"
-              }}
-            />
-          </div>
-        )}
-        {predictionResult && (
-          <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-            <p style={{ fontSize: "1.2rem", marginBottom: "0.5rem" }}>
-              <strong>Kondisi Jerawat:</strong> {predictionResult.predictedClass}
-            </p>
-            <p style={{ fontSize: "1.1rem", color: "#666" }}>
-              <strong>Keyakinan Model:</strong> {(predictionResult.confidence * 100).toFixed(2)}%
-            </p>
-          </div>
-        )}
+       <SimpleModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+            <h3 style={{ fontSize: "1.5rem", marginBottom: "1.5rem", textAlign: "center", color: "#333" }}>
+                Hasil Analisis Wajah
+            </h3>
+            {sharableImageUrl && (
+                <div style={{ marginBottom: "1rem" }}>
+                    <img
+                        src={sharableImageUrl}
+                        alt="Hasil Scan"
+                        style={{
+                            maxWidth: "100%",
+                            maxHeight: "300px",
+                            borderRadius: "12px",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                            display: "block",
+                            margin: "0 auto",
+                            backgroundColor: "white"
+                        }}
+                    />
+                </div>
+            )}
+            {predictionResult && (
+                <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+                    <p style={{ fontSize: "1.2rem", marginBottom: "0.5rem" }}>
+                        <strong>Kondisi Jerawat:</strong> {predictionResult.predictedClass}
+                    </p>
+                    <p style={{ fontSize: "1.1rem", color: "#666" }}>
+                        <strong>Keyakinan Model:</strong> {(predictionResult.confidence * 100).toFixed(2)}%
+                    </p>
+                </div>
+            )}
 
-        <div style={{ textAlign: "center" }}>
-          <p style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "1rem" }}>Bagikan Hasil:</p>
-          <button
-            type="button"
-            className="button"
-            onClick={handleShareFromModal}
-            disabled={!sharableImageUrl || !navigator.share}
-            style={{
-              padding: "0.75rem 2rem",
-              fontSize: "1.1rem",
-              backgroundColor: 'var(--first-color)',
-              color: 'var(--title-color)'
-            }}
-          >
-            Bagikan Hasil Scan
-          </button>
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={handleDownloadImage}
-            style={{
-              padding: "0.75rem 2rem",
-              fontSize: "1.1rem",
-              marginLeft: "1rem",
-            }}
-          >
-            Unduh Hasil Scan
-          </button>
-        </div>
-      </SimpleModal>
+            <div style={{ textAlign: "center" }}>
+                <p style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "1rem" }}>Bagikan Hasil:</p>
+                <button
+                    type="button"
+                    className="button"
+                    onClick={handleShareFromModal}
+                    disabled={!sharableImageUrl || !navigator.share}
+                    style={{
+                        padding: "0.75rem 2rem",
+                        fontSize: "1.1rem",
+                        backgroundColor: 'var(--first-color)',
+                        color: 'var(--title-color)'
+                    }}
+                >
+                    Bagikan Hasil Scan
+                </button>
+                <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={handleDownloadImage}
+                    style={{
+                        padding: "0.75rem 2rem",
+                        fontSize: "1.1rem",
+                        marginLeft: "1rem",
+                    }}
+                >
+                    Unduh Hasil Scan
+                </button>
+            </div>
+        </SimpleModal>
     </>
   );
 }
